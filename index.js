@@ -12,10 +12,37 @@ app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.bkf4wz6.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+function verifyJWT(req, res, next) {
+    const authTokenHeader = req.headers["authorization"];
+    if (!authTokenHeader) {
+      return res.status(401).send({
+        success: false,
+        error: "Unauthorized Access!",
+      });
+    }
+    const token = authTokenHeader.split(" ")[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+      if (err) {
+        res.json({ success: false, error: "You failed to authenticate!" });
+      } else {
+        req.decoded = decoded;
+        next();
+      }
+    });
+  }
+
 async function run(){
         try{
             const serviceCollection = client.db('alexis').collection('services');
             const reviewCollection = client.db('alexis').collection('review');
+
+            app.post("/jwt", (req, res) => {
+                const user = req.body;
+                const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+                  expiresIn: "1d",
+                });
+                res.send({ token });
+              });
 
             app.get('/services', async(req,res)=>{
                 const query ={};
